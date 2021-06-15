@@ -1,0 +1,1 @@
+from gym_spaceinvaders.envs.spaceinvaders_env import CustomSpaceInvadersEnv
