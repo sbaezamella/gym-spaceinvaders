@@ -1,7 +1,7 @@
-import gym
-import gym_spaceinvaders
 import time
 
+import gym
+import gym_spaceinvaders
 
 # Before you can make a CustomSpaceInvaders Environment you need to call:
 # import gym_CustomSpaceInvaders

@@ -66,8 +66,9 @@ class CustomSpaceInvadersEnv(gym.Env, utils.EzPickle):
             low=0, high=200, shape=(10,), dtype=np.float32
         )
         self.images_folder = os.path.join(os.path.dirname(__file__), "images")
-        self.gray_enemies_array_from_images(self.images_folder)
+        self.gray_enemies_dict_from_images(self.images_folder)
         self.gray_agent_array_from_image(self.images_folder)
+        self.locs = {}
 
     def seed(self, seed=None):
         self.np_random, seed1 = seeding.np_random(seed)
@@ -142,27 +143,35 @@ class CustomSpaceInvadersEnv(gym.Env, utils.EzPickle):
             # print(agent_centroid)
             # print(f"Enemies centroids")
             # print(enemies_centroids)
-            agent_x, agent_y = agent_centroid
-            coords = enemies_centroids.copy()
-            coords[:, 0], coords[:, 1] = coords[:, 0] - agent_x, coords[:, 1] - agent_y
-            coords = np.abs(coords)
+            # agent_x, agent_y = agent_centroid
+            # coords = enemies_centroids.copy()
+            # coords[:, 0], coords[:, 1] = coords[:, 0] - agent_x, coords[:, 1] - agent_y
+            # coords = np.abs(coords)
 
-            distances = np.square(coords)
-            distances = np.sqrt(np.sum(distances, axis=1, keepdims=True))
-            coords = np.append(coords, distances, axis=1)
+            # distances = np.square(coords)
+            # distances = np.sqrt(np.sum(distances, axis=1, keepdims=True))
+            # coords = np.append(coords, distances, axis=1)
 
-            sorted_enemy_coords = coords[np.argsort(coords[:, 2])]
+            # sorted_enemy_coords = coords[np.argsort(coords[:, 2])]
 
-            nearest_enemies = sorted_enemy_coords[:5, :2].reshape(
-                10,
-            )
+            # nearest_enemies = sorted_enemy_coords[:5, :2].reshape(
+            #     10,
+            # )
 
-            return nearest_enemies
+            # return nearest_enemies
 
-    def gray_enemies_array_from_images(self, images_folder):
-        self.enemies_array = [
-            cv.imread(image, 0) for image in glob.glob(f"{images_folder}/enemy*.png")
-        ]
+    def gray_enemies_dict_from_images(self, images_folder):
+        self.enemies_dict = {
+            f"enemy_{i}": [
+                cv.imread(f"{images_folder}/enemy_{i}.png", 0),
+                cv.imread(f"{images_folder}/enemy_{i}{i}.png", 0),
+            ]
+            for i in range(6)
+        }
+        # self.enemies_dict = {
+        #     image.split("/")[-1].split(".")[0]: cv.imread(image, 0)
+        #     for image in glob.glob(f"{images_folder}/enemy*.png")
+        # }
 
     def gray_agent_array_from_image(self, images_folder):
         self.agent_array = cv.imread(f"{images_folder}/agent.png", 0)
@@ -178,31 +187,114 @@ class CustomSpaceInvadersEnv(gym.Env, utils.EzPickle):
         return None, False
 
     def find_enemies_in_board(self, board):
-        enemies = self.enemies_array
+        enemies = self.enemies_dict
         centroids = []
+        for key, enemy in enemies.items():
+            enemyv1, enemyv2 = enemy
+            loc1 = self._apply_match_template(board, enemyv1)
+            loc2 = self._apply_match_template(board, enemyv2)
+            if loc1.any():
+                loc = loc1
+                w, h = enemyv1.shape[::-1]
+            elif loc2.any():
+                loc = loc2
+                w, h = enemyv2.shape[::-1]
+            print("loc")
+            print(loc)
+            print()
 
-        for enemy in enemies:
-            w, h = enemy.shape[::-1]
-            loc = self._apply_match_template(board, enemy)
-            if loc.any():
-                # print(loc)
-                loc = loc * 2
-                loc[:, 0] = loc[:, 0] + h
-                loc[:, 1] = loc[:, 1] + w
-                loc = loc / 2
-                centroids.append(loc)
-                # print(loc)
-                # print(loc.shape)
-                # print()
+            if isinstance(self.locs.get(key), np.ndarray):
+                old = self.locs[key]
+                if not np.array_equal(old, loc):
+                    if loc.shape == old.shape:
+                        self.locs[key] = loc
+                    elif loc.shape[0] < old.shape[0]:
+                        print(loc.shape)
+                        print(old.shape)
+
+                        destroyed = np.isin(old, [250, 250]).sum() // 2
+                        masks = [
+                            np.isin(old[:, 1], loc),
+                            np.isin(old[:, 1] + 1, loc),
+                            np.isin(old[:, 1] - 1, loc),
+                        ]
+                        # print("key")
+                        # print(key)
+                        # print()
+                        # print("old")
+                        # print(old)
+                        # print()
+                        # print("loc")
+                        # print(loc)
+                        # print()
+                        # print("old")
+                        # print(np.isin(old[:, 1], loc))
+                        # print()
+                        # print("old + 1")
+                        # print(np.isin(old[:, 1] + 1, loc))
+                        # print()
+                        # print("old -1")
+                        # print(np.isin(old[:, 1] - 1, loc))
+                        # print()
+                        for mask in masks:
+                            if self.ale.getFrameNumber() > 125:
+                                pass
+                                # print("mask")
+                                # print(mask)
+                                # print()
+                            if mask.any():
+                                missing = np.size(mask) - np.count_nonzero(mask)
+                                if missing != destroyed:
+
+                                    idxs = np.where(mask == 0)[0]
+                                    # print(f"{idxs=}")
+                                    for idx in idxs:
+                                        loc = np.insert(loc, idx, [250, 250], axis=0)
+                        self.locs[key] = loc
+
+            else:
+                self.locs[key] = loc
+
+            # if loc.any():
+            #     if hasattr(self.locs.get(key), "shape"):
+            #         old = self.locs.get(key)
+            #         if loc.shape != old.shape:
+            #             # destroyed = np.isin(old, [-1, -1]).sum()
+            #             # if destroyed:
+
+            #             mask = np.isin(old[:, 1], loc)
+            #             print(f"{key=}")
+            #             print(f"{old=}")
+            #             print(f"{loc=}")
+            #             # print(f"{mask=}")
+            #             if (np.size(mask) - np.count_nonzero(mask)) == 1:
+            #                 idx = np.where(mask == 0)[0]
+            #                 print(f"{idx=}")
+            #                 loc = np.insert(loc, idx, [-1, -1], axis=0)
+            #             else:
+            #                 pass
+
+            #         self.locs[key] = loc
+            #     else:
+            #         self.locs[key] = loc
+            #     # print(loc)
+            #     # print()
+            #     loc = loc * 2
+            #     loc[:, 0] = loc[:, 0] + h
+            #     loc[:, 1] = loc[:, 1] + w
+            #     loc = loc / 2
+            #     centroids.append(loc)
+        # print(self.locs)
         # TODO: Check for destroyed enemy spaceship and fill void with -1
-        centroids = np.array(centroids).reshape(36, 2)
-        # Swap columns
-        centroids[:, 0], centroids[:, 1] = centroids[:, 1], centroids[:, 0].copy()
-        return centroids
+        # centroids = np.array(centroids).reshape(36, 2)
+        # # Swap columns
+        # centroids[:, 0], centroids[:, 1] = centroids[:, 1], centroids[:, 0].copy()
+        # return centroids
 
     def _apply_match_template(self, img, template, threshold=0.8):
         # Apply template Matching
         res = cv.matchTemplate(img, template, cv.TM_CCOEFF_NORMED)
+
         loc = np.argwhere(res >= threshold)
         return loc
 
