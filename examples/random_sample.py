@@ -10,20 +10,19 @@ import gym_spaceinvaders
 env_name = "CustomSpaceInvaders-v0"
 env = gym.make(env_name)
 
-
-for i_episode in range(1):
+episodes = 5
+for i_episode in range(episodes):
     observation = env.reset()
+    done = False
+    score = 0
 
-    for t in range(100):
+    while not done:
         env.render()
+        # print(observation)
         action = env.action_space.sample()
-
-        time.sleep(0.05)
         observation, reward, done, info = env.step(action)
-        if done:
-            print("Episode finished after {} timesteps".format(t + 1))
-            env.render()
-            break
-    env.close()
+        score += reward
 
-time.sleep(1)
+    print("Episode: {} Score: {}".format(i_episode + 1, score))
+
+env.close()
