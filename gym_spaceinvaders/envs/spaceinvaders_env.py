@@ -177,6 +177,19 @@ class CustomSpaceInvadersEnv(gym.Env, utils.EzPickle):
                 loc = loc2
                 w, h = enemyv2.shape[::-1]
 
+            else:
+                loc = np.array(
+                    [
+                        [250, 250],
+                        [250, 250],
+                        [250, 250],
+                        [250, 250],
+                        [250, 250],
+                        [250, 250],
+                    ]
+                )
+                w, h = 0, 0
+
             loc[:, 0] = loc[:, 0] + (h / 2)
             loc[:, 1] = loc[:, 1] + (w / 2)
             temp.append(loc)
